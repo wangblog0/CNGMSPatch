@@ -1,0 +1,6 @@
+id=CNGMSPatch
+name=CN GMS Region Patch
+version=1.0.0
+versionCode=100
+author=Local Build
+description=Unlocks CN GMS regional restriction by replacing cn.google.services.xml with an empty permissions set.
