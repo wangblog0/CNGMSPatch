@@ -2,8 +2,6 @@ name: Build Magisk Module
 
 on:
   push:
-    tags:
-      - "*"
 
 permissions:
   contents: write
@@ -23,17 +21,19 @@ jobs:
           set -euo pipefail
 
           MODULE_ID="$(grep '^id=' module.prop | cut -d '=' -f2-)"
-          TAG_NAME="${GITHUB_REF_NAME}"
+          REF_NAME="${GITHUB_REF_NAME}"
+          SAFE_REF_NAME="$(echo "$REF_NAME" | tr '/ ' '--')"
 
           if [ -z "$MODULE_ID" ]; then
             echo "module.prop missing id=..." >&2
             exit 1
           fi
 
-          ZIP_NAME="${MODULE_ID}-${TAG_NAME}.zip"
+          ZIP_NAME="${MODULE_ID}-${SAFE_REF_NAME}.zip"
 
           echo "module_id=$MODULE_ID" >> "$GITHUB_OUTPUT"
-          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "ref_name=$REF_NAME" >> "$GITHUB_OUTPUT"
+          echo "safe_ref_name=$SAFE_REF_NAME" >> "$GITHUB_OUTPUT"
           echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Build module zip
@@ -51,13 +51,14 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: magisk-module-${{ steps.meta.outputs.tag_name }}
+          name: magisk-module-${{ steps.meta.outputs.safe_ref_name }}
           path: dist/${{ steps.meta.outputs.zip_name }}
           if-no-files-found: error
 
       - name: Publish release asset
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.tag_name }}
+          tag_name: ${{ steps.meta.outputs.ref_name }}
           files: dist/${{ steps.meta.outputs.zip_name }}
           generate_release_notes: true
