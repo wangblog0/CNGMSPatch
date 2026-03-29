@@ -1,0 +1,63 @@
+name: Build Magisk Module
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve package metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODULE_ID="$(grep '^id=' module.prop | cut -d '=' -f2-)"
+          TAG_NAME="${GITHUB_REF_NAME}"
+
+          if [ -z "$MODULE_ID" ]; then
+            echo "module.prop missing id=..." >&2
+            exit 1
+          fi
+
+          ZIP_NAME="${MODULE_ID}-${TAG_NAME}.zip"
+
+          echo "module_id=$MODULE_ID" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build module zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # Zip repository contents (module root files), excluding CI and VCS internals.
+          zip -r "dist/${{ steps.meta.outputs.zip_name }}" . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "dist/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: magisk-module-${{ steps.meta.outputs.tag_name }}
+          path: dist/${{ steps.meta.outputs.zip_name }}
+          if-no-files-found: error
+
+      - name: Publish release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          files: dist/${{ steps.meta.outputs.zip_name }}
+          generate_release_notes: true
